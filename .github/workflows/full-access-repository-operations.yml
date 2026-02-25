@@ -1,0 +1,55 @@
+name: Full access repository operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Operation to execute
+        required: true
+        type: choice
+        options:
+          - open
+          - close
+          - fork
+          - clone
+      pull_request_number:
+        description: Pull request number for open/close operations
+        required: false
+        type: string
+      target_repository:
+        description: owner/repo to clone (defaults to current repository)
+        required: false
+        type: string
+
+permissions: write-all
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute requested operation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPERATION: ${{ inputs.operation }}
+          PR_NUMBER: ${{ inputs.pull_request_number }}
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+        run: |
+          set -euo pipefail
+
+          case "$OPERATION" in
+            open)
+              : "${PR_NUMBER:?pull_request_number is required for open}"
+              gh pr reopen "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
+              ;;
+            close)
+              : "${PR_NUMBER:?pull_request_number is required for close}"
+              gh pr close "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
+              ;;
+            fork)
+              gh repo fork "$GITHUB_REPOSITORY" --clone=false
+              ;;
+            clone)
+              REPOSITORY_TO_CLONE="${TARGET_REPOSITORY:-$GITHUB_REPOSITORY}"
+              git clone "https://github.com/${REPOSITORY_TO_CLONE}.git" /tmp/repository-clone
+              ;;
+          esac
